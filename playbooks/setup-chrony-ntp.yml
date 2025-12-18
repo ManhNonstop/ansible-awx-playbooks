@@ -1,0 +1,61 @@
+---
+- name: Setup NTP Server using Chrony (VN Pool + Asia/Ho_Chi_Minh)
+  hosts: all
+  become: true
+
+  vars:
+    timezone: "Asia/Ho_Chi_Minh"
+
+    chrony_servers:
+      - "0.vn.pool.ntp.org"
+      - "1.vn.pool.ntp.org"
+      - "2.vn.pool.ntp.org"
+      - "3.vn.pool.ntp.org"
+
+    chrony_conf:
+      redhat: /etc/chrony.conf
+      debian: /etc/chrony/chrony.conf
+
+  tasks:
+
+    - name: Set system timezone
+      community.general.timezone:
+        name: "{{ timezone }}"
+
+    - name: Install chrony
+      package:
+        name: chrony
+        state: present
+
+    - name: Detect chrony config path
+      set_fact:
+        chrony_config_path: >-
+          {{ chrony_conf['debian']
+             if ansible_facts['os_family'] == 'Debian'
+             else chrony_conf['redhat'] }}
+
+    - name: Backup existing chrony config
+      copy:
+        src: "{{ chrony_config_path }}"
+        dest: "{{ chrony_config_path }}.bak"
+        remote_src: true
+      ignore_errors: true
+
+    - name: Remove existing server/pool lines
+      lineinfile:
+        path: "{{ chrony_config_path }}"
+        regexp: '^(server|pool)\s+'
+        state: absent
+
+    - name: Add VN NTP servers
+      lineinfile:
+        path: "{{ chrony_config_path }}"
+        line: "server {{ item }} iburst"
+        insertafter: EOF
+      loop: "{{ chrony_servers }}"
+
+    - name: Restart chrony service
+      service:
+        name: "{{ 'chronyd' if ansible_facts['os_family'] != 'Debian' else 'chrony' }}"
+        state: restarted
+        enabled: true
