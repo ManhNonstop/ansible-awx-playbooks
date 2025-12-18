@@ -79,7 +79,7 @@
         body:
           host_name: "{{ checkmk_hostname }}"
           mode: refresh
-        status_code: [200, 302]
+        status_code: [200, 302, 303, 204]
 
     - name: Wait 45 seconds for service discovery
       pause:
