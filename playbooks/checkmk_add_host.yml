@@ -1,112 +1,56 @@
 - name: Checkmk Management Playbook
   hosts: all
   gather_facts: no
+
   vars:
     checkmk_api: "{{ checkmk_url }}/{{ checkmk_site }}/check_mk/api/1.0"
     checkmk_hostname: "{{ inventory_hostname | lower | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
-    auth_header: "Basic {{ (checkmk_user ~ ':' ~ checkmk_secret) | b64encode }}"
+    checkmk_auth_header: "Basic {{ (checkmk_user ~ ':' ~ checkmk_secret) | b64encode }}"
 
   tasks:
-    # BƯỚC 1: KIỂM TRA HOST TỒN TẠI CHƯA
+    # 1️⃣ CHECK HOST
     - name: Check if host already exists
       uri:
         url: "{{ checkmk_api }}/objects/host_config/{{ checkmk_hostname }}"
         method: GET
         headers:
-          Authorization: "{{ auth_header }}"
+          Authorization: "{{ checkmk_auth_header }}"
           Accept: application/json
         status_code: [200, 404]
+        validate_certs: no
       register: host_check
 
-    # BƯỚC 2: CHỈ TẠO HOST NẾU CHƯA CÓ (STATUS 404)
+    # 2️⃣ CREATE HOST (NẾU CHƯA CÓ)
     - name: Create host if missing
       uri:
         url: "{{ checkmk_api }}/domain-types/host_config/collections/all"
         method: POST
         headers:
-          Authorization: "{{ auth_header }}"
+          Authorization: "{{ checkmk_auth_header }}"
           Accept: application/json
           Content-Type: application/json
         body_format: json
         body:
           host_name: "{{ checkmk_hostname }}"
-          folder: "/"
+          folder: "{{ checkmk_folder | default('/') }}"
           attributes:
             ipaddress: "{{ ansible_host | default(inventory_hostname) }}"
+        validate_certs: no
       when: host_check.status == 404
-      register: create_host_result
 
-    # BƯỚC 3: DISCOVERY DÙ HOST MỚI HAY CŨ
-    - name: Service Discovery + Accept all
-      uri:
-        url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
-        method: POST
-        headers:
-          Authorization: "{{ auth_header }}"
-          Accept: application/json
-          Content-Type: application/json
-        body_format: json
-        body:
-          host_name: "{{ checkmk_hostname }}"
-          mode: "fix_all"
-        status_code: [200, 302, 303]
-        follow_redirects: yes
-        validate_certs: no
-        # CẬP NHẬT Ở ĐÂY: Thêm 303 và follow_redirects
-        status_code: [200, 302, 303]
-        follow_redirects: yes
-        validate_certs: no
-      register: discovery_result
-    # BƯỚC 4: CHẤP NHẬN TẤT CẢ SERVICE (ACCEPT ALL)
-    - name: Bulk Discovery - Accept all services
-      uri:
-        url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/bulk_discovery_incremental/invoke"
-        method: POST
-        headers:
-          Authorization: "{{ auth_header }}"
-          Accept: application/json
-          Content-Type: application/json
-        body_format: json
-        body:
-          hostnames: ["{{ checkmk_hostname }}"]
-          mode: "fix_all" # "fix_all" tương đương với việc nhấn "Accept all"
-        status_code: [200]
-        
-    # BƯỚC 5: LẤY ETAG ĐỂ KÍCH HOẠT
-    - name: Get ETag for activation
-      uri:
-        url: "{{ checkmk_api }}/domain-types/activation_run/collections/pending_changes"
-        method: GET
-        headers:
-          Authorization: "{{ auth_header }}"
-          Accept: application/json
-      register: pending_changes
-      # Chạy một lần duy nhất vì ETag là chung cho cả site
-      run_once: true
-
-    # BƯỚC 6: KÍCH HOẠT (CHỈ CHẠY 1 LẦN CHO CẢ PLAYBOOK)
-    - name: Activate Changes
-      uri:
-        url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
-        method: POST
-        headers:
-          Authorization: "{{ auth_header }}"
-          # Sử dụng etag từ header của response trước
-          If-Match: "{{ pending_changes.etag }}"
-          Accept: application/json
-          Content-Type: application/json
-        body_format: json
-        body:
-          redirect: false
-          sites: ["{{ checkmk_site }}"]
-          force_foreign_changes: false
-      run_once: true
-      when: pending_changes.etag is defined
-      
-    - name: Accept all services and Activate via CLI
+    # 3️⃣ SERVICE DISCOVERY + ACCEPT ALL (CLI – CHUẨN)
+    - name: Service discovery and accept all services via CLI
       ansible.builtin.shell: |
-        su - {{ checkmk_site }} -c "cmk -II {{ checkmk_hostname }} && cmk -R"
+        su - {{ checkmk_site }} -c "cmk -II {{ checkmk_hostname }}"
       delegate_to: "{{ checkmk_server }}"
       become: yes
-      register: cli_result
-      changed_when: cli_result.rc == 0
+      register: discovery_cli
+      changed_when: "'Added' in discovery_cli.stdout or 'changed' in discovery_cli.stdout"
+
+    # 4️⃣ ACTIVATE CHANGES (CLI – ỔN ĐỊNH NHẤT)
+    - name: Activate changes via CLI
+      ansible.builtin.shell: |
+        su - {{ checkmk_site }} -c "cmk -R"
+      delegate_to: "{{ checkmk_server }}"
+      become: yes
+      run_once: true
