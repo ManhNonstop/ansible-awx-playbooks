@@ -56,23 +56,6 @@
             tag_agent: "cmk-agent"
       when: checkmk_host_check.status == 404
 
-    - name: Activate Checkmk changes after service discovery
-      uri:
-        url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
-        method: POST
-        user: "{{ checkmk_user }}"
-        password: "{{ checkmk_secret }}"
-        force_basic_auth: yes
-        validate_certs: no
-        headers:
-          Accept: "application/json"
-          Content-Type: "application/json"
-          If-Match: "*"
-        body_format: json
-        body: {}
-        status_code: 200
-      when: checkmk_host_check.status == 404
-
     - name: Start Service Discovery
       uri:
         url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
@@ -91,7 +74,11 @@
           mode: refresh
         status_code: [200, 303]
 
-    - name: Activate changes
+    - name: Wait 45 seconds for service discovery to finish
+      pause:
+        seconds: 45
+
+    - name: Activate changes (allow foreign)
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
         method: POST
@@ -104,5 +91,6 @@
           Content-Type: "application/json"
           If-Match: "*"
         body_format: json
-        body: {}
+        body:
+          allow_foreign_changes: true
         status_code: [200, 204]
