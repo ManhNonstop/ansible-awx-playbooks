@@ -65,5 +65,7 @@
         validate_certs: no
         headers:
           Accept: "application/json"
+          Content-Type: "application/json"
+        body_format: json
+        body: {}
         status_code: 200
-      when: checkmk_host_check.status == 404
