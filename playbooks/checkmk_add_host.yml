@@ -49,7 +49,11 @@
         body:
           host_name: "{{ checkmk_hostname }}"
           mode: "refresh"
-        status_code: [200, 302]
+        # CẬP NHẬT Ở ĐÂY: Thêm 303 và follow_redirects
+        status_code: [200, 302, 303]
+        follow_redirects: yes
+        validate_certs: no
+      register: discovery_result
 
     # BƯỚC 4: LẤY ETAG ĐỂ KÍCH HOẠT
     - name: Get ETag for activation
@@ -60,6 +64,8 @@
           Authorization: "{{ auth_header }}"
           Accept: application/json
       register: pending_changes
+      # Chạy một lần duy nhất vì ETag là chung cho cả site
+      run_once: true
 
     # BƯỚC 5: KÍCH HOẠT (CHỈ CHẠY 1 LẦN CHO CẢ PLAYBOOK)
     - name: Activate Changes
@@ -68,6 +74,7 @@
         method: POST
         headers:
           Authorization: "{{ auth_header }}"
+          # Sử dụng etag từ header của response trước
           If-Match: "{{ pending_changes.etag }}"
           Accept: application/json
           Content-Type: application/json
@@ -77,3 +84,4 @@
           sites: ["{{ checkmk_site }}"]
           force_foreign_changes: false
       run_once: true
+      when: pending_changes.etag is defined
