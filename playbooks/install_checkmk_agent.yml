@@ -1,0 +1,27 @@
+---
+- name: Install Checkmk Agent from internal repository
+  hosts: all
+  become: yes
+  vars:
+    checkmk_agent_url: "http://172.16.20.2/wyatt/check_mk/agents/check-mk-agent_2.4.0p17-1_all.deb"
+    checkmk_agent_deb: "/tmp/check-mk-agent_2.4.0p17-1_all.deb"
+
+  tasks:
+    - name: Download Checkmk agent package
+      get_url:
+        url: "{{ checkmk_agent_url }}"
+        dest: "{{ checkmk_agent_deb }}"
+        mode: '0644'
+        timeout: 30
+
+    - name: Install Checkmk agent
+      apt:
+        deb: "{{ checkmk_agent_deb }}"
+        state: present
+
+    - name: Ensure Checkmk agent service is enabled and running
+      service:
+        name: check-mk-agent
+        state: started
+        enabled: yes
+      ignore_errors: yes
