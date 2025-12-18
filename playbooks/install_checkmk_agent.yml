@@ -1,5 +1,5 @@
 ---
-- name: Install Checkmk Agent from internal repository (idempotent)
+- name: Install Checkmk Agent from internal repository (fixed)
   hosts: all
   become: yes
 
@@ -13,9 +13,9 @@
       package_facts:
         manager: auto
 
-    - name: Show status of Checkmk agent
+    - name: Check if Checkmk Agent is already installed
       debug:
-        msg: "Checkmk Agent is already installed"
+        msg: "Checkmk Agent already installed"
       when: checkmk_agent_pkg in ansible_facts.packages
 
     - name: Download Checkmk agent package
@@ -32,10 +32,20 @@
         state: present
       when: checkmk_agent_pkg not in ansible_facts.packages
 
-    - name: Ensure Checkmk agent service is running
+    - name: Check if xinetd exists
+      stat:
+        path: /etc/xinetd.d/check_mk
+      register: checkmk_xinetd
+
+    - name: Restart xinetd if Checkmk agent config exists
       service:
-        name: check-mk-agent
-        state: started
-        enabled: yes
-      when: checkmk_agent_pkg not in ansible_facts.packages
+        name: xinetd
+        state: restarted
+      when: checkmk_xinetd.stat.exists
+      ignore_errors: yes
+
+    - name: Verify Checkmk agent port 6556
+      wait_for:
+        port: 6556
+        timeout: 5
       ignore_errors: yes
