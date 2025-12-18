@@ -79,7 +79,7 @@
         body:
           host_name: "{{ checkmk_hostname }}"
           mode: refresh
-        status_code: [200, 302, 303, 204]
+        status_code: [200, 302, 303]
 
     - name: Wait 45 seconds for service discovery
       pause:
@@ -88,17 +88,24 @@
     # -------------------------------------------------
     # 4. Accept all discovered services (BẮT BUỘC)
     # -------------------------------------------------
-    - name: Accept all discovered services
+    - name: Activate changes after discovery
       uri:
-        url: "{{ checkmk_api }}/objects/host_config/{{ checkmk_hostname }}/actions/accept-all-services/invoke"
+        url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
         method: POST
-        user: automation
+        user: "{{ checkmk_user }}"
         password: "{{ checkmk_secret }}"
-        force_basic_auth: true
-        validate_certs: false
+        force_basic_auth: yes
+        validate_certs: no
         headers:
           Accept: application/json
+          Content-Type: application/json
           If-Match: "*"
+        body_format: json
+        body:
+          force_foreign_changes: false
+          redirect: false
+          sites:
+            - "{{ checkmk_site }}"
         status_code: [200, 204]
 
     - name: Wait 10 seconds after accepting services
