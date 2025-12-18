@@ -56,7 +56,7 @@
             tag_agent: "cmk-agent"
       when: checkmk_host_check.status == 404
 
-    - name: Activate Checkmk changes
+    - name: Activate Checkmk changes after service discovery
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
         method: POST
@@ -71,6 +71,7 @@
         body_format: json
         body: {}
         status_code: 200
+      when: checkmk_host_check.status == 404
 
     - name: Start Service Discovery
       uri:
