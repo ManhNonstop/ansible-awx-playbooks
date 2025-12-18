@@ -78,7 +78,7 @@
       pause:
         seconds: 45
 
-    - name: Activate changes (allow foreign)
+    - name: Activate changes
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
         method: POST
@@ -91,6 +91,5 @@
           Content-Type: "application/json"
           If-Match: "*"
         body_format: json
-        body:
-          allow_foreign_changes: true
+        body: {}
         status_code: [200, 204]
