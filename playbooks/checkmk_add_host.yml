@@ -7,7 +7,6 @@
   vars:
     checkmk_api: "{{ checkmk_url }}/check_mk/api/1.0"
 
-    # Sanitize hostname (AWX inventory có thể có space)
     checkmk_hostname: >-
       {{ inventory_hostname
          | lower
@@ -23,6 +22,9 @@
           checkmk_hostname: "{{ checkmk_hostname }}"
           ip: "{{ checkmk_ip }}"
 
+    # -------------------------------------------------
+    # 1. Check host exists
+    # -------------------------------------------------
     - name: Check if host exists in Checkmk
       uri:
         url: "{{ checkmk_api }}/objects/host_config/{{ checkmk_hostname }}"
@@ -32,11 +34,14 @@
         force_basic_auth: yes
         validate_certs: no
         headers:
-          Accept: "application/json"
+          Accept: application/json
         status_code: [200, 404]
       register: checkmk_host_check
 
-    - name: Add host to Checkmk (enable agent + api integration)
+    # -------------------------------------------------
+    # 2. Create host
+    # -------------------------------------------------
+    - name: Add host to Checkmk (agent enabled)
       uri:
         url: "{{ checkmk_api }}/domain-types/host_config/collections/all"
         method: POST
@@ -45,8 +50,8 @@
         force_basic_auth: yes
         validate_certs: no
         headers:
-          Accept: "application/json"
-          Content-Type: "application/json"
+          Accept: application/json
+          Content-Type: application/json
         body_format: json
         body:
           host_name: "{{ checkmk_hostname }}"
@@ -56,44 +61,72 @@
             tag_agent: "cmk-agent"
       when: checkmk_host_check.status == 404
 
-    - name: Start Service Discovery
+    # -------------------------------------------------
+    # 3. Start service discovery (async)
+    # -------------------------------------------------
+    - name: Start service discovery
       uri:
         url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
         method: POST
-        user: "{{ checkmk_user }}"
+        user: automation
         password: "{{ checkmk_secret }}"
-        force_basic_auth: yes
-        validate_certs: no
+        force_basic_auth: true
+        validate_certs: false
         headers:
-          Accept: "application/json"
-          Content-Type: "application/json"
-          If-Match: "*"
+          Accept: application/json
+          Content-Type: application/json
         body_format: json
         body:
-          host_name: "{{ inventory_hostname }}"
+          host_name: "{{ checkmk_hostname }}"
           mode: refresh
-        status_code: [200, 303]
+        status_code: [200, 302]
 
-    - name: Wait 45 seconds for service discovery to finish
+    - name: Wait 45 seconds for service discovery
       pause:
         seconds: 45
+
+    # -------------------------------------------------
+    # 4. Accept all discovered services (BẮT BUỘC)
+    # -------------------------------------------------
     - name: Accept all discovered services
       uri:
-        url: "{{ checkmk_api }}/objects/host/{{ inventory_hostname }}/actions/accept-all-services/invoke"
+        url: "{{ checkmk_api }}/objects/host_config/{{ checkmk_hostname }}/actions/accept-all-services/invoke"
         method: POST
+        user: automation
+        password: "{{ checkmk_secret }}"
+        force_basic_auth: true
+        validate_certs: false
+        headers:
+          Accept: application/json
+          If-Match: "*"
+        status_code: [200, 204]
+
+    - name: Wait 10 seconds after accepting services
+      pause:
+        seconds: 10
+
+    # -------------------------------------------------
+    # 5. Get pending changes + ETag
+    # -------------------------------------------------
+    - name: Get pending changes
+      uri:
+        url: "{{ checkmk_api }}/domain-types/activation_run/collections/pending_changes"
+        method: GET
         user: "{{ checkmk_user }}"
         password: "{{ checkmk_secret }}"
         force_basic_auth: yes
         validate_certs: no
         headers:
           Accept: application/json
-          Content-Type: application/json
-          If-Match: "*"
-        status_code: [200, 204]
-    - name: Wait 10 seconds for service discovery to finish
-      pause:
-        seconds: 10
+      register: pending_changes
 
+    - name: Set ETag for activation
+      set_fact:
+        pending_etag: "{{ pending_changes.etag | default('') }}"
+
+    # -------------------------------------------------
+    # 6. Activate changes (CHUẨN)
+    # -------------------------------------------------
     - name: Activate changes
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
@@ -103,9 +136,13 @@
         force_basic_auth: yes
         validate_certs: no
         headers:
-          Accept: "application/json"
-          Content-Type: "application/json"
-          If-Match: "*"
+          Accept: application/json
+          Content-Type: application/json
+          If-Match: "{{ pending_etag }}"
         body_format: json
-        body: {}
+        body:
+          sites:
+            - "{{ checkmk_site }}"
+          force_foreign_changes: false
         status_code: [200, 204]
+      when: pending_etag != ""
