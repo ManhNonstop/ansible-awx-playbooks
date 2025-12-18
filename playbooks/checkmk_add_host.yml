@@ -31,6 +31,8 @@
         password: "{{ checkmk_secret }}"
         force_basic_auth: yes
         validate_certs: no
+        headers:
+          Accept: "application/json"
         status_code: [200, 404]
       register: checkmk_host_check
 
@@ -43,6 +45,7 @@
         force_basic_auth: yes
         validate_certs: no
         headers:
+          Accept: "application/json"
           Content-Type: "application/json"
         body_format: json
         body:
@@ -60,5 +63,7 @@
         password: "{{ checkmk_secret }}"
         force_basic_auth: yes
         validate_certs: no
+        headers:
+          Accept: "application/json"
         status_code: 200
       when: checkmk_host_check.status == 404
