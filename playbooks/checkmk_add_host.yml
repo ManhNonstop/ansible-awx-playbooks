@@ -87,23 +87,24 @@
           If-Match: "*"
         body_format: json
         body:
-          host_name: "{{ checkmk_hostname }}"
-          mode: "refresh"
+          host_name: "{{ inventory_hostname }}"
+          mode: refresh
         status_code: [200, 303]
-        return_content: yes
-      register: discovery_start
 
-    - name: Wait for Service Discovery to complete
+    - name: Activate changes
       uri:
-        url: "{{ discovery_start.location }}"
-        method: GET
+        url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
+        method: POST
         user: "{{ checkmk_user }}"
         password: "{{ checkmk_secret }}"
         force_basic_auth: yes
         validate_certs: no
         headers:
           Accept: "application/json"
-        status_code: 200
+          Content-Type: "application/json"
+        body_format: json
+        body: {}
+        status_code: [200, 204]
 
     - name: Activate Checkmk changes
       uri:
