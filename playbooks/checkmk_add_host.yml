@@ -1,15 +1,25 @@
-- name: Checkmk Automation via REST API
+- name: Checkmk Management Playbook
   hosts: all
   gather_facts: no
   vars:
-    # Cấu hình chung
     checkmk_api: "{{ checkmk_url }}/{{ checkmk_site }}/check_mk/api/1.0"
     checkmk_hostname: "{{ inventory_hostname | lower | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
-    auth_header: "Bearer {{ checkmk_user }} {{ checkmk_secret }}"
+    auth_header: "Bearer automation U3!#*s1IlfZjPCXB"
 
   tasks:
-    # BƯỚC 1: TẠO HOST (Như bạn đã làm)
-    - name: 1. Create host if missing
+    # BƯỚC 1: KIỂM TRA HOST TỒN TẠI CHƯA
+    - name: Check if host already exists
+      uri:
+        url: "{{ checkmk_api }}/objects/host_config/{{ checkmk_hostname }}"
+        method: GET
+        headers:
+          Authorization: "{{ auth_header }}"
+          Accept: application/json
+        status_code: [200, 404]
+      register: host_check
+
+    # BƯỚC 2: CHỈ TẠO HOST NẾU CHƯA CÓ (STATUS 404)
+    - name: Create host if missing
       uri:
         url: "{{ checkmk_api }}/domain-types/host_config/collections/all"
         method: POST
@@ -23,11 +33,12 @@
           folder: "/"
           attributes:
             ipaddress: "{{ ansible_host | default(inventory_hostname) }}"
-        status_code: [200, 404] # 404 nếu bạn muốn check trước, hoặc xử lý lỗi nếu host tồn tại
+      when: host_check.status == 404
+      register: create_host_result
 
-    # BƯỚC 2: CHẠY SERVICE DISCOVERY
-    - name: 2. Perform Service Discovery
-      uri: # Dòng này phải thẳng hàng với chữ "n" của "name" hoặc thụt vào 2 khoảng trống chuẩn
+    # BƯỚC 3: DISCOVERY DÙ HOST MỚI HAY CŨ
+    - name: Perform Service Discovery
+      uri:
         url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
         method: POST
         headers:
@@ -39,11 +50,9 @@
           host_name: "{{ checkmk_hostname }}"
           mode: "refresh"
         status_code: [200, 302]
-        validate_certs: no
-      register: discovery_result
 
-    # BƯỚC 3: LẤY ETAG ĐỂ ACTIVATE
-    - name: 3. Get ETag for pending changes
+    # BƯỚC 4: LẤY ETAG ĐỂ KÍCH HOẠT
+    - name: Get ETag for activation
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/collections/pending_changes"
         method: GET
@@ -51,17 +60,16 @@
           Authorization: "{{ auth_header }}"
           Accept: application/json
       register: pending_changes
-      run_once: true
 
-    # BƯỚC 4: KÍCH HOẠT THAY ĐỔI
-    - name: 4. Activate Changes
+    # BƯỚC 5: KÍCH HOẠT (CHỈ CHẠY 1 LẦN CHO CẢ PLAYBOOK)
+    - name: Activate Changes
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
         method: POST
         headers:
           Authorization: "{{ auth_header }}"
-          # Quan trọng: Lấy ETag từ header của bước trước
           If-Match: "{{ pending_changes.etag }}"
+          Accept: application/json
           Content-Type: application/json
         body_format: json
         body:
@@ -69,4 +77,3 @@
           sites: ["{{ checkmk_site }}"]
           force_foreign_changes: false
       run_once: true
-      when: pending_changes.etag is defined
