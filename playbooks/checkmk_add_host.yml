@@ -47,10 +47,42 @@
       register: discovery_cli
       changed_when: "'Added' in discovery_cli.stdout or 'changed' in discovery_cli.stdout"
 
-    # ACTIVATE CHANGES
+    # RELOAD CORE
     - name: Activate changes via CLI
       ansible.builtin.shell: |
         su - {{ checkmk_site }} -c "cmk -R"
       delegate_to: "{{ checkmk_server }}"
       become: yes
+      run_once: true
+
+    # GET ETag  
+    - name: Get pending changes (ETag)
+      uri:
+        url: "{{ checkmk_api }}/domain-types/activation_run/collections/pending_changes"
+        method: GET
+        headers:
+          Authorization: "{{ checkmk_auth_header }}"
+          Accept: application/json
+        validate_certs: no
+      register: pending_changes
+      run_once: true
+
+    # ACGTIVE CHANGES
+    - name: Activate Checkmk changes
+      uri:
+        url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
+        method: POST
+        headers:
+          Authorization: "{{ checkmk_auth_header }}"
+          Accept: application/json
+          Content-Type: application/json
+          If-Match: "{{ pending_changes.etag }}"
+        body_format: json
+        body:
+          force_foreign_changes: false
+          redirect: false
+          sites:
+            - "{{ checkmk_site }}"
+        validate_certs: no
+      when: pending_changes.etag is defined
       run_once: true
