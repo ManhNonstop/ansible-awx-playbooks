@@ -12,27 +12,20 @@
 
   tasks:
 
-    - name: Check cmk-agent-ctl exists
-      command: which cmk-agent-ctl
-      changed_when: false
-
     - name: Check if agent already registered
       command: cmk-agent-ctl status
       register: agent_status
-      changed_when: false
       failed_when: false
+      changed_when: false
 
-    - name: Register agent to Checkmk server (auto confirm)
-      ansible.builtin.expect:
-        command: >
-          cmk-agent-ctl register
-          --server {{ checkmk_server }}
-          --site {{ checkmk_site }}
-          --user {{ checkmk_user }}
-          --hostname {{ checkmk_hostname }}
-          --password {{ checkmk_password }}
-        responses:
-          '(?i)Do you want to continue.*': 'y'
-          '(?i)Continue.*': 'y'
+    - name: Register agent to Checkmk server (NO PROMPT)
+      command: >
+        cmk-agent-ctl register
+        --server {{ checkmk_server }}
+        --site {{ checkmk_site }}
+        --user {{ checkmk_user }}
+        --hostname {{ checkmk_hostname }}
+        --password {{ checkmk_password }}
+        --trust-cert
       when: agent_status.rc != 0
       no_log: true
