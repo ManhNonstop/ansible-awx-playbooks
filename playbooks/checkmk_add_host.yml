@@ -1,5 +1,5 @@
 ---
-- name: Auto add hosts to Checkmk from AWX inventory (FIXED)
+- name: Auto add hosts to Checkmk from AWX inventory
   hosts: all
   gather_facts: yes
   become: no
@@ -7,7 +7,7 @@
   vars:
     checkmk_api: "{{ checkmk_url }}/check_mk/api/1.0"
 
-    # Sanitize hostname: replace space & special chars
+    # Sanitize hostname (AWX inventory có thể có space)
     checkmk_hostname: >-
       {{ inventory_hostname
          | lower
@@ -16,7 +16,7 @@
     checkmk_ip: "{{ ansible_host | default(ansible_default_ipv4.address) }}"
 
   tasks:
-    - name: Debug hostname mapping (IMPORTANT)
+    - name: Debug mapping
       debug:
         msg:
           awx_inventory_hostname: "{{ inventory_hostname }}"
