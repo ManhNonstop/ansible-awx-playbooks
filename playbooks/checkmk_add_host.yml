@@ -54,8 +54,22 @@
         follow_redirects: yes
         validate_certs: no
       register: discovery_result
-
-    # BƯỚC 4: LẤY ETAG ĐỂ KÍCH HOẠT
+    # BƯỚC 4: CHẤP NHẬN TẤT CẢ SERVICE (ACCEPT ALL)
+    - name: Bulk Discovery - Accept all services
+      uri:
+        url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/bulk_discovery_incremental/invoke"
+        method: POST
+        headers:
+          Authorization: "{{ auth_header }}"
+          Accept: application/json
+          Content-Type: application/json
+        body_format: json
+        body:
+          hostnames: ["{{ checkmk_hostname }}"]
+          mode: "fix_all" # "fix_all" tương đương với việc nhấn "Accept all"
+        status_code: [200]
+        
+    # BƯỚC 5: LẤY ETAG ĐỂ KÍCH HOẠT
     - name: Get ETag for activation
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/collections/pending_changes"
@@ -67,7 +81,7 @@
       # Chạy một lần duy nhất vì ETag là chung cho cả site
       run_once: true
 
-    # BƯỚC 5: KÍCH HOẠT (CHỈ CHẠY 1 LẦN CHO CẢ PLAYBOOK)
+    # BƯỚC 6: KÍCH HOẠT (CHỈ CHẠY 1 LẦN CHO CẢ PLAYBOOK)
     - name: Activate Changes
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
