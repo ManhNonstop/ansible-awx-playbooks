@@ -122,4 +122,4 @@
           sites:
             - "{{ checkmk_site }}"
           force_foreign_changes: false
-      status_code: [200, 204, 422]
+        status_code: [200, 204, 422]
