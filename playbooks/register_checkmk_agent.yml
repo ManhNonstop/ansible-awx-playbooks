@@ -18,14 +18,15 @@
       failed_when: false
       changed_when: false
 
-    - name: Register agent to Checkmk server (NO PROMPT)
-      command: >
-        cmk-agent-ctl register
-        --server {{ checkmk_server }}
-        --site {{ checkmk_site }}
-        --user {{ checkmk_user }}
-        --hostname {{ checkmk_hostname }}
-        --password {{ checkmk_password }}
-        --trust-cert
-      when: agent_status.rc != 0
+    - name: Register agent with expect (new prompt)
+      ansible.builtin.expect:
+        command: >
+          cmk-agent-ctl register
+          --server {{ checkmk_server }}
+          --site {{ checkmk_site }}
+          --user {{ checkmk_user }}
+          --hostname {{ checkmk_hostname }}
+          --password {{ checkmk_password }}
+        responses:
+          '(?i)establish this connection': 'y'
       no_log: true
