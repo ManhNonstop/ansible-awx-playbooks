@@ -56,6 +56,26 @@
             tag_agent: "cmk-agent"
       when: checkmk_host_check.status == 404
 
+    - name: Start Service Discovery for host
+      uri:
+        url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
+        method: POST
+        user: "{{ checkmk_user }}"
+        password: "{{ checkmk_secret }}"
+        force_basic_auth: yes
+        validate_certs: no
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          If-Match: "*"
+        body_format: json
+        body:
+          host_name: "{{ checkmk_hostname }}"
+          mode: "refresh"
+        status_code: 200
+      when: checkmk_host_check.status == 404
+      register: discovery_job
+
     - name: Activate Checkmk changes
       uri:
         url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
