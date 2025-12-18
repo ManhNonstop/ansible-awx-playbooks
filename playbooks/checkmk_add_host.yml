@@ -77,6 +77,22 @@
     - name: Wait 45 seconds for service discovery to finish
       pause:
         seconds: 45
+    - name: Accept all discovered services
+      uri:
+        url: "{{ checkmk_api }}/objects/host/{{ inventory_hostname }}/actions/accept-all-services/invoke"
+        method: POST
+        user: "{{ checkmk_user }}"
+        password: "{{ checkmk_secret }}"
+        force_basic_auth: yes
+        validate_certs: no
+        headers:
+          Accept: application/json
+          Content-Type: application/json
+          If-Match: "*"
+        status_code: [200, 204]
+    - name: Wait 10 seconds for service discovery to finish
+      pause:
+        seconds: 10
 
     - name: Activate changes
       uri:
