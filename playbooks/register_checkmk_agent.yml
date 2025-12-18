@@ -1,0 +1,35 @@
+---
+- name: Register Checkmk Agent
+  hosts: all
+  become: true
+  vars:
+    checkmk_server: "172.16.20.2"
+    checkmk_site: "wyatt"
+    checkmk_user: "cmkadmin"
+    checkmk_password: "bnwGvLqpAf1k"
+    checkmk_hostname: "{{ inventory_hostname }}"
+
+  tasks:
+
+    - name: Check cmk-agent-ctl exists
+      command: which cmk-agent-ctl
+      register: cmk_ctl
+      changed_when: false
+      failed_when: cmk_ctl.rc != 0
+
+    - name: Check if agent already registered
+      command: cmk-agent-ctl status
+      register: agent_status
+      changed_when: false
+      failed_when: false
+
+    - name: Register agent to Checkmk server
+      command: >
+        cmk-agent-ctl register
+        --server {{ checkmk_server }}
+        --site {{ checkmk_site }}
+        --user {{ checkmk_user }}
+        --hostname {{ checkmk_hostname }}
+        --password {{ checkmk_password }}
+      when: agent_status.rc != 0
+      no_log: true
