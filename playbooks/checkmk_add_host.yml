@@ -1,22 +1,36 @@
 ---
-- name: Auto add hosts to Checkmk from AWX inventory
+- name: Auto add hosts to Checkmk from AWX inventory (FIXED)
   hosts: all
   gather_facts: yes
   become: no
 
   vars:
     checkmk_api: "{{ checkmk_url }}/check_mk/api/1.0"
-    host_name: "{{ inventory_hostname }}"
-    host_ip: "{{ ansible_host | default(ansible_default_ipv4.address) }}"
+
+    # Sanitize hostname: replace space & special chars
+    checkmk_hostname: >-
+      {{ inventory_hostname
+         | lower
+         | regex_replace('[^a-zA-Z0-9_.-]', '_') }}
+
+    checkmk_ip: "{{ ansible_host | default(ansible_default_ipv4.address) }}"
 
   tasks:
-    - name: Check if host already exists in Checkmk
+    - name: Debug hostname mapping (IMPORTANT)
+      debug:
+        msg:
+          awx_inventory_hostname: "{{ inventory_hostname }}"
+          checkmk_hostname: "{{ checkmk_hostname }}"
+          ip: "{{ checkmk_ip }}"
+
+    - name: Check if host exists in Checkmk
       uri:
-        url: "{{ checkmk_api }}/objects/host_config/{{ host_name }}"
+        url: "{{ checkmk_api }}/objects/host_config/{{ checkmk_hostname }}"
         method: GET
         user: "{{ checkmk_user }}"
         password: "{{ checkmk_secret }}"
         force_basic_auth: yes
+        validate_certs: no
         status_code: [200, 404]
       register: checkmk_host_check
 
@@ -27,16 +41,16 @@
         user: "{{ checkmk_user }}"
         password: "{{ checkmk_secret }}"
         force_basic_auth: yes
+        validate_certs: no
         headers:
           Content-Type: "application/json"
         body_format: json
         body:
-          host_name: "{{ host_name }}"
+          host_name: "{{ checkmk_hostname }}"
           folder: "{{ checkmk_folder }}"
           attributes:
-            ipaddress: "{{ host_ip }}"
+            ipaddress: "{{ checkmk_ip }}"
       when: checkmk_host_check.status == 404
-      register: add_host_result
 
     - name: Activate Checkmk changes
       uri:
@@ -45,5 +59,6 @@
         user: "{{ checkmk_user }}"
         password: "{{ checkmk_secret }}"
         force_basic_auth: yes
+        validate_certs: no
         status_code: 200
       when: checkmk_host_check.status == 404
