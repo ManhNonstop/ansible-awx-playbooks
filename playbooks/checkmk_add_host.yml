@@ -101,7 +101,7 @@
         body_format: json
         body:
           mode: refresh
-      status_code: [200, 204, 409]
+        status_code: [200, 204, 409]
 
     # -------------------------------------------------
     # 5. Activate changes (FINAL)
