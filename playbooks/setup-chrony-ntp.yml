@@ -19,7 +19,7 @@
   tasks:
 
     - name: Set system timezone
-      community.general.timezone:
+        community.general.timezone:
         name: "{{ timezone }}"
 
     - name: Install chrony
