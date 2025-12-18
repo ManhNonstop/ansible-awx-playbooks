@@ -36,7 +36,7 @@
         status_code: [200, 404]
       register: checkmk_host_check
 
-    - name: Add host to Checkmk
+    - name: Add host to Checkmk (enable agent + api integration)
       uri:
         url: "{{ checkmk_api }}/domain-types/host_config/collections/all"
         method: POST
@@ -53,6 +53,7 @@
           folder: "{{ checkmk_folder }}"
           attributes:
             ipaddress: "{{ checkmk_ip }}"
+            tag_agent: "cmk-agent"
       when: checkmk_host_check.status == 404
 
     - name: Activate Checkmk changes
