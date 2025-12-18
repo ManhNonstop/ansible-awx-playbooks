@@ -80,7 +80,7 @@
     - name: Run discovery + accept services
       ansible.builtin.shell: |
         su - {{ checkmk_site }} -c \
-        "cmk --automation discovery --hostname {{ checkmk_hostname }} --mode refresh"
+        "cmk --automation service-discovery --hostname {{ checkmk_hostname }} --mode refresh"
       delegate_to: "{{ checkmk_server }}"
       changed_when: true
 
