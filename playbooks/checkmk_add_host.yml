@@ -4,7 +4,7 @@
   vars:
     checkmk_api: "{{ checkmk_url }}/{{ checkmk_site }}/check_mk/api/1.0"
     checkmk_hostname: "{{ inventory_hostname | lower | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
-    auth_header: "Bearer automation tnmilUjxX8A6AfiTh4"
+    auth_header: "Bearer {{ checkmk_user }} {{ checkmk_secret }}"
 
   tasks:
     # BƯỚC 1: KIỂM TRA HOST TỒN TẠI CHƯA
@@ -37,18 +37,21 @@
       register: create_host_result
 
     # BƯỚC 3: DISCOVERY DÙ HOST MỚI HAY CŨ
-    - name: Perform Service Discovery
+    - name: Service Discovery + Accept all
       uri:
         url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
         method: POST
         headers:
-          Authorization: "{{ auth_header }}"
+          Authorization: "{{ checkmk_auth_header }}"
           Accept: application/json
           Content-Type: application/json
         body_format: json
         body:
           host_name: "{{ checkmk_hostname }}"
-          mode: "refresh"
+          mode: "fix_all"
+        status_code: [200, 302, 303]
+        follow_redirects: yes
+        validate_certs: no
         # CẬP NHẬT Ở ĐÂY: Thêm 303 và follow_redirects
         status_code: [200, 302, 303]
         follow_redirects: yes
