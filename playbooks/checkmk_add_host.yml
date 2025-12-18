@@ -84,13 +84,12 @@
     - name: Wait 45 seconds for service discovery
       pause:
         seconds: 45
-
     # -------------------------------------------------
-    # 4. Accept all discovered services (BẮT BUỘC)
+    # 4. Accept ALL discovered services (QUAN TRỌNG)
     # -------------------------------------------------
-    - name: Activate changes after discovery
+    - name: Accept all discovered services
       uri:
-        url: "{{ checkmk_api }}/domain-types/activation_run/actions/activate-changes/invoke"
+        url: "{{ checkmk_api }}/objects/host_config/{{ checkmk_hostname }}/actions/accept-all-services/invoke"
         method: POST
         user: "{{ checkmk_user }}"
         password: "{{ checkmk_secret }}"
@@ -99,40 +98,13 @@
         headers:
           Accept: application/json
           Content-Type: application/json
-          If-Match: "*"
         body_format: json
         body:
-          force_foreign_changes: false
-          redirect: false
-          sites:
-            - "{{ checkmk_site }}"
-        status_code: [200, 204]
-
-    - name: Wait 10 seconds after accepting services
-      pause:
-        seconds: 10
+          mode: refresh
+      status_code: [200, 204, 409]
 
     # -------------------------------------------------
-    # 5. Get pending changes + ETag
-    # -------------------------------------------------
-    - name: Get pending changes
-      uri:
-        url: "{{ checkmk_api }}/domain-types/activation_run/collections/pending_changes"
-        method: GET
-        user: "{{ checkmk_user }}"
-        password: "{{ checkmk_secret }}"
-        force_basic_auth: yes
-        validate_certs: no
-        headers:
-          Accept: application/json
-      register: pending_changes
-
-    - name: Set ETag for activation
-      set_fact:
-        pending_etag: "{{ pending_changes.etag | default('') }}"
-
-    # -------------------------------------------------
-    # 6. Activate changes (CHUẨN)
+    # 5. Activate changes (FINAL)
     # -------------------------------------------------
     - name: Activate changes
       uri:
@@ -145,11 +117,9 @@
         headers:
           Accept: application/json
           Content-Type: application/json
-          If-Match: "{{ pending_etag }}"
         body_format: json
         body:
           sites:
             - "{{ checkmk_site }}"
           force_foreign_changes: false
-        status_code: [200, 204]
-      when: pending_etag != ""
+      status_code: [200, 204, 422]
