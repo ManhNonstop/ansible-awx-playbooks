@@ -42,7 +42,7 @@
         url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
         method: POST
         headers:
-          Authorization: "{{ checkmk_auth_header }}"
+          Authorization: "{{ auth_header }}"
           Accept: application/json
           Content-Type: application/json
         body_format: json
