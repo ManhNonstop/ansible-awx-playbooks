@@ -1,0 +1,5 @@
+- name: Ping test
+  hosts: all
+  gather_facts: no
+  tasks:
+    - ping:
