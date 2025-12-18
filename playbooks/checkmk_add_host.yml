@@ -4,7 +4,7 @@
   vars:
     checkmk_api: "{{ checkmk_url }}/{{ checkmk_site }}/check_mk/api/1.0"
     checkmk_hostname: "{{ inventory_hostname | lower | regex_replace('[^a-zA-Z0-9_.-]', '_') }}"
-    auth_header: "Bearer automation U3!#*s1IlfZjPCXB"
+    auth_header: "Bearer automation tnmilUjxX8A6AfiTh4"
 
   tasks:
     # BƯỚC 1: KIỂM TRA HOST TỒN TẠI CHƯA
