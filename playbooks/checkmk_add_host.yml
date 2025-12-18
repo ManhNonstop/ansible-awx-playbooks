@@ -27,20 +27,20 @@
 
     # BƯỚC 2: CHẠY SERVICE DISCOVERY
     - name: 2. Perform Service Discovery
-          uri:
-            url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
-            method: POST
-            headers:
-              Authorization: "{{ auth_header }}"
-              Accept: application/json        # THIẾU DÒNG NÀY gây lỗi 406
-              Content-Type: application/json
-            body_format: json
-            body:
-              host_name: "{{ checkmk_hostname }}"
-              mode: "refresh"
-            status_code: [200, 302]
-            validate_certs: no
-          register: discovery_result
+      uri: # Dòng này phải thẳng hàng với chữ "n" của "name" hoặc thụt vào 2 khoảng trống chuẩn
+        url: "{{ checkmk_api }}/domain-types/service_discovery_run/actions/start/invoke"
+        method: POST
+        headers:
+          Authorization: "{{ auth_header }}"
+          Accept: application/json
+          Content-Type: application/json
+        body_format: json
+        body:
+          host_name: "{{ checkmk_hostname }}"
+          mode: "refresh"
+        status_code: [200, 302]
+        validate_certs: no
+      register: discovery_result
 
     # BƯỚC 3: LẤY ETAG ĐỂ ACTIVATE
     - name: 3. Get ETag for pending changes
