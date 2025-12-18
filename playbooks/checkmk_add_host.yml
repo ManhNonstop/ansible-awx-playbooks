@@ -99,3 +99,11 @@
           force_foreign_changes: false
       run_once: true
       when: pending_changes.etag is defined
+      
+    - name: Accept all services and Activate via CLI
+      ansible.builtin.shell: |
+        su - {{ checkmk_site }} -c "cmk -II {{ checkmk_hostname }} && cmk -R"
+      delegate_to: "{{ checkmk_server }}"
+      become: yes
+      register: cli_result
+      changed_when: cli_result.rc == 0
