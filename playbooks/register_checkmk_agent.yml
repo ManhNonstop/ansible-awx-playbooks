@@ -2,6 +2,7 @@
 - name: Register Checkmk Agent
   hosts: all
   become: true
+
   vars:
     checkmk_server: "172.16.20.2"
     checkmk_site: "wyatt"
@@ -13,9 +14,7 @@
 
     - name: Check cmk-agent-ctl exists
       command: which cmk-agent-ctl
-      register: cmk_ctl
       changed_when: false
-      failed_when: cmk_ctl.rc != 0
 
     - name: Check if agent already registered
       command: cmk-agent-ctl status
@@ -23,13 +22,17 @@
       changed_when: false
       failed_when: false
 
-    - name: Register agent to Checkmk server
-      command: >
-        cmk-agent-ctl register
-        --server {{ checkmk_server }}
-        --site {{ checkmk_site }}
-        --user {{ checkmk_user }}
-        --hostname {{ checkmk_hostname }}
-        --password {{ checkmk_password }}
+    - name: Register agent to Checkmk server (auto confirm)
+      ansible.builtin.expect:
+        command: >
+          cmk-agent-ctl register
+          --server {{ checkmk_server }}
+          --site {{ checkmk_site }}
+          --user {{ checkmk_user }}
+          --hostname {{ checkmk_hostname }}
+          --password {{ checkmk_password }}
+        responses:
+          '(?i)Do you want to continue.*': 'y'
+          '(?i)Continue.*': 'y'
       when: agent_status.rc != 0
       no_log: true
