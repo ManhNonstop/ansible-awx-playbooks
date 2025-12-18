@@ -1,27 +1,41 @@
 ---
-- name: Install Checkmk Agent from internal repository
+- name: Install Checkmk Agent from internal repository (idempotent)
   hosts: all
   become: yes
+
   vars:
+    checkmk_agent_pkg: "check-mk-agent"
     checkmk_agent_url: "http://172.16.20.2/wyatt/check_mk/agents/check-mk-agent_2.4.0p17-1_all.deb"
     checkmk_agent_deb: "/tmp/check-mk-agent_2.4.0p17-1_all.deb"
 
   tasks:
+    - name: Gather installed package facts
+      package_facts:
+        manager: auto
+
+    - name: Show status of Checkmk agent
+      debug:
+        msg: "Checkmk Agent is already installed"
+      when: checkmk_agent_pkg in ansible_facts.packages
+
     - name: Download Checkmk agent package
       get_url:
         url: "{{ checkmk_agent_url }}"
         dest: "{{ checkmk_agent_deb }}"
         mode: '0644'
         timeout: 30
+      when: checkmk_agent_pkg not in ansible_facts.packages
 
     - name: Install Checkmk agent
       apt:
         deb: "{{ checkmk_agent_deb }}"
         state: present
+      when: checkmk_agent_pkg not in ansible_facts.packages
 
-    - name: Ensure Checkmk agent service is enabled and running
+    - name: Ensure Checkmk agent service is running
       service:
         name: check-mk-agent
         state: started
         enabled: yes
+      when: checkmk_agent_pkg not in ansible_facts.packages
       ignore_errors: yes
